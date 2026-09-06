@@ -10,6 +10,15 @@ saveNotice({title:'新生见面会',body:'新生见面会周五15点在图书馆
 const mock = createServer(async (req,res) => {
   let body = ''; for await (const chunk of req) body += chunk;
   const payload = JSON.parse(body); const last = payload.messages.at(-1).content as string;
+  if(payload.response_format?.type==='json_object'){
+    const input=JSON.parse(last);const raw=input.body as string;
+    if(raw.includes('整理格式异常')){res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:'invalid-json'}}]}));return;}
+    const category=raw.includes('调课')?'teaching':raw.includes('作业')?'assignments':raw.includes('招聘')?'careers':raw.includes('摄影')?'activities':raw.includes('缴费')?'campus':'other';
+    const title=raw.split('\n')[0].slice(0,30);const summary=raw.slice(0,100);
+    const result={category,title,summary,evidence:category==='other'?'':raw.slice(0,100)};
+    const timer=setTimeout(()=>{res.writeHead(200,{'Content-Type':'application/json'});res.end(JSON.stringify({choices:[{message:{content:JSON.stringify(result)},finish_reason:'stop'}]}));},raw.includes('慢速整理')?650:20);
+    res.on('close',()=>clearTimeout(timer));return;
+  }
   if (last.includes('额度测试')) { res.writeHead(402); res.end(); return; }
   if (last.includes('超时测试')) { const timer = setTimeout(()=>res.end(),5000); res.on('close',()=>clearTimeout(timer)); return; }
   res.writeHead(200,{'Content-Type':'text/event-stream'});

@@ -1,12 +1,14 @@
+import type { ORGANIZATION_DEFAULTS } from './categories';
 export type Notice = {
   id: string; title: string; body: string; noticeAt: string;
   createdAt: string; updatedAt: string; status: 'draft' | 'published';
-};
+} & typeof ORGANIZATION_DEFAULTS;
 export type Source = { number: number; id: string; title: string; noticeAt: string };
 export type ChatMessage = { role: 'user' | 'assistant'; content: string };
 export type DisplayMessage = ChatMessage & { id: string; sources?: Source[]; failed?: boolean; interrupted?: boolean };
-export function noticeLabel(notice: Pick<Notice, 'title' | 'body'>) {
+export function noticeLabel(notice: Pick<Notice, 'title' | 'body'> & { generatedTitle?: string }) {
   if (notice.title.trim()) return notice.title;
+  if (notice.generatedTitle?.trim()) return notice.generatedTitle;
   const text = notice.body.trim().split(/\r?\n/).find(line => line.trim())?.trim() || '校园通知';
   return text.length > 36 ? text.slice(0, 36) + '…' : text;
 }

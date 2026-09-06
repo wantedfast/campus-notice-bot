@@ -6,15 +6,25 @@
 
 **已部署地址：** [学生端](http://123.56.166.126/campus-chatting) · [管理后台](http://123.56.166.126/campus-chatting/admin)
 
+> 本次新增的自动分类与摘要已完成本地验证，尚未更新到上面的线上网址；网站发布需另行确认。GitHub CI 仅测试，不自动部署。
+
 > 本项目由管理员在后台录入通知，不自动读取微信群，也不在微信群内回复。可将网站链接分享到微信群供学生访问。
 
 ## 界面预览
+
+新增分类界面（显式演示数据，本地预览）：
+
+![通知分类桌面端](previews/organization-desktop.png)
+
+<p align="center"><img src="previews/organization-mobile.png" alt="手机通知分类" width="320" /></p>
+
+原有问答界面：
 
 ![课间桌面端](previews/desktop.png)
 
 <p align="center"><img src="previews/mobile.png" alt="课间手机端" width="320" /></p>
 
-截图展示未配置模型时的界面；填写自己的 DeepSeek Key 后即可开启问答。示例数据不会自动进入真实通知库。
+原有问答截图展示未配置模型时的界面；填写自己的 DeepSeek Key 后即可开启问答及整理。示例数据不会自动进入真实通知库。
 
 ## 功能一览
 
@@ -22,8 +32,10 @@
 |---|---|
 | 学生 | 手机/电脑浏览、通知搜索、原文查看、连续追问、流式回答、来源跳转 |
 | 学生 | 停止生成、失败重试、本浏览器历史记录、清空对话 |
+| 学生 | 六类通知筛选、自动短标题与摘要、摘要旁查看原文 |
 | 管理员 | 密码登录、粘贴正文、标题选填、保存草稿、发布、编辑、撤下 |
 | 管理员 | 点击发布时自动记录服务器时间，统一以北京时间显示 |
+| 管理员 | 后台自动整理、手动修正并锁定分类/摘要、失败重试 |
 | 部署维护 | SQLite 持久化、在线备份、Docker、请求限流、服务端密钥 |
 
 未配置 API Key 时可以正常管理和浏览通知，问答会明确提示尚未配置。
@@ -71,6 +83,8 @@ npm run dev
 | `NEXT_PUBLIC_BASE_PATH` | 可选子路径，例如 `/campus-chatting`；改动后必须重新构建 |
 | `DATABASE_PATH` | 默认 `./data/campus.sqlite` |
 | `CHAT_TIMEOUT_MS` | 默认 45000，总等待上限；最多 120000 |
+| `ORGANIZATION_TIMEOUT_MS` | 自动整理单次超时，默认 25000，最多 45000 毫秒 |
+| `NOTICE_WORKER_ENABLED` | `true` 启用后台整理；npm start/dev、Docker 和 systemd 模板默认启用；直接启动 standalone 时须显式设置 |
 | `TRUST_PROXY` | 仅当受控反向代理覆盖 X-Forwarded-For 时设为 `true` |
 
 可用以下命令生成会话密钥，将结果粘贴到 `.env.local`：
@@ -91,6 +105,18 @@ node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 
 通知是公共内容，持有链接的人均可访问；管理页明确提示这一点。第一版只管理一个通知库，不包含微信采集、群内回复、学生账户、文件上传或 OCR。
 
+### 自动整理通知
+
+固定六类：**教学安排、作业考试、活动报名、实习就业、校园事务、其他通知**。每条通知按主要事项归入一类；手机横向滑动分类栏，可叠加关键词搜索。列表按发布时间排序，整理完成不会把旧通知顶到最前。
+
+发布后原文立即可读，服务端后台调用 DeepSeek 生成分类、最多 40 字短标题和最多 160 字摘要。人工标题始终优先；空标题依次使用生成标题、正文首行。摘要只供快速浏览，原文完整保留；问答检索与依据仍使用原文。
+
+管理员编辑通知时可选择手动分类，或勾选“手动编辑摘要”。“保存分类与摘要”只更新整理信息，不改变发布时间。手动修正会锁定对应字段，重新整理、后续编辑正文都不会覆盖；正文变化后请同时检查原有手动摘要。选择“自动识别”或取消手动摘要后保存，可解除相应锁定并重新排队。修改正文仍需点击“发布通知”。
+
+任务持久化在 SQLite，单实例一次处理一条；失败分别等待 15 秒、60 秒重试，最多尝试 3 次，随后可手动重试。服务重启后恢复队列，超过 90 秒的中断任务可重新领取；版本校验阻止旧请求覆盖新正文或撤下通知。未配置 Key 时保留等待状态。模型格式异常时保留原文，分类证据无法核对或包含原文没有的数字时标为“待确认”，不展示该次自动结果。这些校验不能保证摘要永远准确，详情页始终保留原文。
+
+首次升级自动添加数据库字段，并将历史已发布通知加入队列；草稿不会送到模型。升级前请备份数据库。“整理历史通知”补充处理未整理、失败或待确认记录，跳过完成和运行中的任务。旧通知逐条消耗模型额度。此版本不提取截止日期、不判断过期、不发送提醒，也不自动合并通知。
+
 ### 手机与对话
 
 - 360px 起单栏布局，底部安全区和 Visual Viewport 适配；输入文字为 16px，支持中文输入法。
@@ -109,7 +135,7 @@ Next.js App Router + TypeScript + Tailwind CSS；Node.js 内置 SQLite 开启 WA
 
 | 接口 | 行为 |
 |---|---|
-| `GET /api/notices?q=关键词` | 已发布通知、最近更新时间、`chatReady`；标题或正文包含匹配 |
+| `GET /api/notices?q=关键词&category=teaching` | 已发布通知；按分类筛选及标题、生成标题、摘要、正文搜索；参数可省略 |
 | `GET /api/notices/:id` | 公开原文；草稿、撤下或不存在均为 404 |
 | `POST /api/chat` | `{messages:[{role:'user'或'assistant',content:string}]}`；返回 SSE |
 | `GET /api/admin/session` | 返回是否已认证、管理员配置是否齐全 |
@@ -118,8 +144,13 @@ Next.js App Router + TypeScript + Tailwind CSS；Node.js 内置 SQLite 开启 WA
 | `GET /api/admin/notices` | 已认证管理员查看全部通知，包括草稿 |
 | `POST /api/admin/notices` | 创建通知，成功 201 |
 | `PUT /api/admin/notices/:id` | 更新通知，包括发布、撤下；不存在为 404 |
+| `PATCH /api/admin/notices/:id/organization` | 仅修正分类或摘要，不改变发布时间 |
+| `POST /api/admin/notices/:id/organization` | 将单条已发布通知重新加入整理队列 |
+| `POST /api/admin/organization` | 补充整理历史通知 |
 
-通知写入字段为 `title`（选填，最多 120 字符）、`body`（1–16000 字符）、`status`（`draft` / `published`）。服务端生成 `id`、`createdAt`、`updatedAt`；每次点击发布（包括编辑后重新发布）时，以服务器当前时间设置 `noticeAt`，忽略客户端传入的时间。保存草稿不产生新的发布时间，草稿列表显示保存时间。已有通知保留原记录，直到再次发布。标题留空时，列表和引用用正文首行摘要显示，不修改存储的空标题。时间存 UTC，界面统一显示北京时间。
+创建、更新和整理修正接口支持 `categoryOverride`（六类英文 ID 或 null）、`summaryOverride`（最多 160 字或 null）：省略表示保留当前选择，具体值表示手动锁定，null 表示恢复自动。分类 ID 为 `teaching`、`assignments`、`activities`、`careers`、`campus`、`other`。
+
+通知写入字段为 `title`（选填，最多 120 字符）、`body`（1–16000 字符）、`status`（`draft` / `published`）。服务端生成 `id`、`createdAt`、`updatedAt`；每次点击发布（包括编辑后重新发布）时，以服务器当前时间设置 `noticeAt`，忽略客户端传入的时间。保存草稿不产生新的发布时间，草稿列表显示保存时间。已有通知保留原记录，直到再次发布。标题留空时，列表和引用优先使用自动生成标题，未生成时使用正文首行，不修改存储的空标题。时间存 UTC，界面统一显示北京时间。
 
 聊天 SSE 事件：`sources`（编号与通知元数据数组）、`token`（`{text}`）、`done`（`{}`）、`error`（`{error}`）。客户端遇到 error 或无 done 的断流，会保留已生成内容并标明不完整。HTTP 阶段错误为 `{error:string}`。
 

@@ -9,8 +9,9 @@ import { makeSession, validSession, isAdmin, sameOrigin, passwordMatches, acquir
 import { chatSchema, readJson, noticeSchema } from '../src/lib/http';
 import { readCompletion, openCompletion } from '../src/lib/deepseek';
 import { noticeLabel, type Notice } from '../src/lib/types';
+import { ORGANIZATION_DEFAULTS } from '../src/lib/categories';
 
-const meeting: Notice = { id: 'a', title: '新生见面会', body: '周五15点图书馆，带学生证。', noticeAt: '2026-09-06T00:00:00.000Z', createdAt: '2026-09-06T00:00:00.000Z', updatedAt: '2026-09-06T00:00:00.000Z', status: 'published' };
+const meeting: Notice = { ...ORGANIZATION_DEFAULTS, id: 'a', title: '新生见面会', body: '周五15点图书馆，带学生证。', noticeAt: '2026-09-06T00:00:00.000Z', createdAt: '2026-09-06T00:00:00.000Z', updatedAt: '2026-09-06T00:00:00.000Z', status: 'published' };
 const amended: Notice = { ...meeting, id:'b', body:'更正：新生见面会改为周六15点。', noticeAt:'2026-09-07T00:00:00.000Z' };
 test('retrieval excludes drafts, includes conflicting notices and uses follow-up context', () => {
   const notices = [meeting, amended, { ...meeting, id: 'draft', status: 'draft' as const }];
@@ -74,7 +75,7 @@ test('SQLite publish/edit/withdraw are immediately reflected; drafts remain priv
     assert.equal(saveNotice({...saved},'missing'),undefined);
     const snapshot = join(dir,'snapshot.sqlite'); await backup(db(),snapshot);
     const restored = new DatabaseSync(snapshot);
-    try { assert.equal((restored.prepare('SELECT * FROM notices WHERE id=?').get(saved.id) as Notice).status,'draft'); assert.equal(Object.values(restored.prepare('PRAGMA integrity_check').get()!)[0],'ok'); }
+    try { assert.equal(restored.prepare('SELECT * FROM notices WHERE id=?').get(saved.id)!.status,'draft'); assert.equal(Object.values(restored.prepare('PRAGMA integrity_check').get()!)[0],'ok'); }
     finally { restored.close(); }
   } finally { db().close(); rmSync(dir,{recursive:true,force:true}); }
 });

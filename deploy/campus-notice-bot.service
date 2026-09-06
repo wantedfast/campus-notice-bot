@@ -11,6 +11,7 @@ WorkingDirectory=/opt/campus-notice-bot/current
 EnvironmentFile=/opt/campus-notice-bot/.env.local
 Environment=NODE_ENV=production
 Environment=NEXT_TELEMETRY_DISABLED=1
+Environment=NOTICE_WORKER_ENABLED=true
 Environment=HOSTNAME=127.0.0.1
 Environment=PORT=3013
 Environment=NODE_OPTIONS=--max-old-space-size=384

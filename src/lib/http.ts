@@ -1,12 +1,17 @@
 import { z } from 'zod';
+import { CATEGORY_IDS } from './categories';
 export class HttpError extends Error {
   constructor(public status: number, message: string) { super(message); }
 }
 export const noticeSchema = z.object({
   title: z.string().trim().max(120).optional().default(''),
   body: z.string().trim().min(1).max(16000),
-  status: z.enum(['draft', 'published'])
+  status: z.enum(['draft', 'published']),
+  categoryOverride: z.enum(CATEGORY_IDS).nullable().optional(),
+  summaryOverride: z.string().trim().max(160).nullable().optional()
 });
+export const organizationSchema = noticeSchema.pick({ categoryOverride: true, summaryOverride: true })
+  .refine(v => v.categoryOverride !== undefined || v.summaryOverride !== undefined, '请提交需要调整的分类或摘要');
 export const chatSchema = z.object({ messages: z.array(z.object({
   role: z.enum(['user', 'assistant']), content: z.string().trim().min(1).max(4000)
 })).min(1).max(12) }).refine(v => v.messages.at(-1)?.role === 'user', '最后一条必须是问题');
