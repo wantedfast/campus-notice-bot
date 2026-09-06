@@ -4,6 +4,8 @@
 
 **手机优先 · 无需学生注册 · 标题选填 · 自动发布时间 · 回答附来源**
 
+**已部署地址：** [学生端](http://123.56.166.126/campus-chatting) · [管理后台](http://123.56.166.126/campus-chatting/admin)
+
 > 本项目由管理员在后台录入通知，不自动读取微信群，也不在微信群内回复。可将网站链接分享到微信群供学生访问。
 
 ## 界面预览
@@ -201,6 +203,35 @@ client_max_body_size 128k;
 `proxy_pass` 后面不添加 `/`，让完整子路径传递给 Next.js。此时本应用接口位于 `/campus-chatting/api/`，静态资源位于 `/campus-chatting/_next/`，不会占用原站 `/api/`。管理员入口为 `/campus-chatting/admin`。修改 Nginx 后先执行 `nginx -t`，通过后再 reload。
 
 Docker 配置已提供；是否成功构建、微信实机效果和公网部署状态见 [验证记录](VALIDATION.md)，未执行项不会标为已验证。
+
+### 不使用 Docker：独立 Node.js + systemd
+
+当前在线实例使用此方式：独立 Node.js 24 运行目录、`campusbot` 系统用户及 systemd 服务，应用只监听 `127.0.0.1:3013`，由 Nginx 提供子路径访问。服务器上其他应用的 Node.js 版本不需要更改。
+
+可复用配置在 [deploy/campus-notice-bot.service](deploy/campus-notice-bot.service)、[deploy/nginx-routes.conf](deploy/nginx-routes.conf) 和 [deploy/nginx-proxy.conf](deploy/nginx-proxy.conf)。目录约定：
+
+```text
+/opt/campus-notice-bot/
+├── .env.local           服务端环境变量，权限 600
+├── current -> releases/版本号
+├── releases/版本号/      已构建源码及 standalone 产物
+├── runtime/node/        独立 Node.js 24 运行时
+├── data/campus.sqlite   持久化通知库
+└── backups/             数据和 Nginx 配置备份
+```
+
+构建时设置 `NEXT_PUBLIC_BASE_PATH=/campus-chatting`，运行时设置同值，且将 `DATABASE_PATH` 指向上面的持久化目录。安装依赖并执行 `npm run build` 后，把 `public/` 和 `.next/static/` 分别复制到 `.next/standalone/public/` 和 `.next/standalone/.next/static/`。让 `campusbot` 拥有应用目录，再安装上述 unit 并执行 `systemctl enable --now campus-notice-bot`。
+
+维护命令：
+
+```bash
+systemctl status campus-notice-bot
+journalctl -u campus-notice-bot -n 50 --no-pager
+systemctl restart campus-notice-bot
+curl -f http://127.0.0.1:3013/campus-chatting/api/notices
+```
+
+更新时先在新 release 目录构建，备份数据库，再切换 `current` 并重启本应用。回滚时把 `current` 指回上一版并重启；无需改动原站的服务。首次添加 Nginx 子路径前应备份原配置，只有 `nginx -t` 通过后才 reload。
 
 ## 备份与恢复
 

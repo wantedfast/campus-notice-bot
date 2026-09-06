@@ -1,0 +1,31 @@
+[Unit]
+Description=Campus Notice Bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=campusbot
+Group=campusbot
+WorkingDirectory=/opt/campus-notice-bot/current
+EnvironmentFile=/opt/campus-notice-bot/.env.local
+Environment=NODE_ENV=production
+Environment=NEXT_TELEMETRY_DISABLED=1
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3013
+Environment=NODE_OPTIONS=--max-old-space-size=384
+ExecStart=/opt/campus-notice-bot/runtime/node/bin/node /opt/campus-notice-bot/current/.next/standalone/server.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+MemoryMax=512M
+CPUQuota=70%
+Nice=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/opt/campus-notice-bot/data /opt/campus-notice-bot/current/.next
+
+[Install]
+WantedBy=multi-user.target
