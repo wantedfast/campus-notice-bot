@@ -1,0 +1,18 @@
+services:
+  campus:
+    build: .
+    restart: unless-stopped
+    env_file: .env.local
+    environment:
+      DATABASE_PATH: /app/data/campus.sqlite
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - campus-data:/app/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/notices').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+volumes:
+  campus-data:

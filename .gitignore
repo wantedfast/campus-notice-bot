@@ -1,0 +1,16 @@
+node_modules/
+.next/
+.env*
+!.env.example
+data/
+backups/
+test-results/
+playwright-report/
+*.tsbuildinfo
+*.pem
+*.key
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.log
+*.zip
