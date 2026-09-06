@@ -66,6 +66,7 @@ npm run dev
 | `DEEPSEEK_MODEL` | 默认 `deepseek-v4-flash`，可替换为账号可用模型 |
 | `DEEPSEEK_BASE_URL` | 默认 `https://api.deepseek.com`，仅服务端配置；测试使用本地模拟服务 |
 | `APP_URL` | 用户实际访问的完整站点地址，例如 `https://notice.example.com`，不带路径 |
+| `NEXT_PUBLIC_BASE_PATH` | 可选子路径，例如 `/campus-chatting`；改动后必须重新构建 |
 | `DATABASE_PATH` | 默认 `./data/campus.sqlite` |
 | `CHAT_TIMEOUT_MS` | 默认 45000，总等待上限；最多 120000 |
 | `TRUST_PROXY` | 仅当受控反向代理覆盖 X-Forwarded-For 时设为 `true` |
@@ -139,7 +140,7 @@ npm start
 也可用 Docker（Linux 容器）：
 
 ```bash
-docker compose up -d --build
+docker compose --env-file .env.local up -d --build
 ```
 
 Compose 从 `.env.local` 读取环境，使用 `campus-data` 命名卷存数据库，并只把服务暴露到宿主机 `127.0.0.1:3000`。Docker 镜像使用 Next.js standalone 产物、非 root 用户运行，不包含 `.env.local` 或数据库。
@@ -160,6 +161,44 @@ location / {
 ```
 
 确认服务仅接受此代理流量后，才设置 `TRUST_PROXY=true`。HTTPS 的 APP_URL 会启用登录 Cookie 的 Secure 属性。不要在临时无持久磁盘的 serverless 平台上运行此 SQLite 版本。
+
+### 与已有网站共用 IP：子路径部署
+
+例如原站保留 `http://服务器IP/`，本应用使用 `http://服务器IP/campus-chatting`。在 `.env.local` 设置：
+
+```dotenv
+APP_URL=http://服务器IP
+NEXT_PUBLIC_BASE_PATH=/campus-chatting
+HOST_PORT=3013
+TRUST_PROXY=true
+```
+
+用上面的 `docker compose --env-file .env.local up -d --build` 构建，确保前端、Next.js 路由和运行时使用同一个路径。将以下 location 添加到该 IP 对应的原有 Nginx server 中；保留原来的其他 location：
+
+```nginx
+location = /campus-chatting {
+    proxy_pass http://127.0.0.1:3013;
+    include /etc/nginx/snippets/campus-chatting-proxy.conf;
+}
+location ^~ /campus-chatting/ {
+    proxy_pass http://127.0.0.1:3013;
+    include /etc/nginx/snippets/campus-chatting-proxy.conf;
+}
+```
+
+`/etc/nginx/snippets/campus-chatting-proxy.conf` 内容：
+
+```nginx
+proxy_set_header Host $host;
+proxy_set_header X-Forwarded-For $remote_addr;
+proxy_set_header X-Forwarded-Proto $scheme;
+proxy_http_version 1.1;
+proxy_buffering off;
+proxy_read_timeout 130s;
+client_max_body_size 128k;
+```
+
+`proxy_pass` 后面不添加 `/`，让完整子路径传递给 Next.js。此时本应用接口位于 `/campus-chatting/api/`，静态资源位于 `/campus-chatting/_next/`，不会占用原站 `/api/`。管理员入口为 `/campus-chatting/admin`。修改 Nginx 后先执行 `nginx -t`，通过后再 reload。
 
 Docker 配置已提供；是否成功构建、微信实机效果和公网部署状态见 [验证记录](VALIDATION.md)，未执行项不会标为已验证。
 

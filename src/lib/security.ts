@@ -40,7 +40,8 @@ export function requireAdmin(request: Request, mutation = false) {
 }
 export function sessionCookie(token: string, maxAge = 28800) {
   const secure = process.env.APP_URL?.startsWith('https://');
-  return `campus_admin=${token}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secure ? '; Secure' : ''}`;
+  const path = process.env.NEXT_PUBLIC_BASE_PATH || '/';
+  return `campus_admin=${token}; Path=${path}; HttpOnly; SameSite=Strict; Max-Age=${maxAge}${secure ? '; Secure' : ''}`;
 }
 const globalState = globalThis as unknown as { campusLimits?: Map<string, { count: number; reset: number }>; campusActive?: number };
 const limits = globalState.campusLimits ??= new Map();

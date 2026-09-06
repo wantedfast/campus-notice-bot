@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowUp, ArrowUpRight, BookOpen, Check, ChevronRight, CircleHelp, Clock3, GraduationCap, LoaderCircle, MessageCircle, Plus, Search, ShieldCheck, Sparkles, Square, X } from 'lucide-react';
 import { dateLabel, noticeLabel, type DisplayMessage, type Notice, type Source } from '@/lib/types';
+import { apiPath } from '@/lib/urls';
 
 const storageKey = 'campus-chat-v1';
 const newId = () => typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint32Array(4))).map(v => v.toString(16)).join('-');
@@ -40,7 +41,7 @@ export default function StudentApp({ initialTab = 'chat' }: { initialTab?: 'chat
 
   const refresh = useCallback(async () => {
     try {
-      const response = await fetch('/api/notices', { cache: 'no-store' });
+      const response = await fetch(apiPath('/api/notices'), { cache: 'no-store' });
       if (!response.ok) throw new Error('通知暂时加载失败，请重试');
       const data = await response.json(); setNotices(data.notices); setUpdated(data.updatedAt); setChatReady(data.chatReady); setLoadError('');
     } catch (e) { setLoadError(e instanceof Error ? e.message : '通知暂时加载失败'); }
@@ -98,7 +99,7 @@ export default function StudentApp({ initialTab = 'chat' }: { initialTab?: 'chat
     const controller = new AbortController(); abort.current = controller;
     const update = (fn: (m: DisplayMessage) => DisplayMessage) => setMessages(prev => prev.map(m => m.id === id ? fn(m) : m));
     try {
-      const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const response = await fetch(apiPath('/api/chat'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ messages: next.filter(m => m.content && !m.failed && !m.interrupted).slice(-12).map(m => ({ role: m.role, content: m.content.slice(0,4000) })) }), signal: controller.signal });
       if (!response.ok) { const data = await response.json(); throw new Error(data.error || '暂时无法回答，请重试'); }
       if (!response.body) throw new Error('连接中断，请重试');

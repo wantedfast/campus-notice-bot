@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ArrowUpRight, Check, GraduationCap, LoaderCircle, LockKeyhole, LogOut, Plus, Save, Send, X } from 'lucide-react';
 import { dateLabel, noticeLabel, type Notice } from '@/lib/types';
+import { apiPath } from '@/lib/urls';
 type Form = { id?: string; title: string; body: string; status: Notice['status'] };
 
 const emptyForm = (): Form => ({ title: '', body: '', status: 'draft' });
@@ -11,7 +12,7 @@ export default function Admin() {
   const [password,setPassword] = useState(''), [notices,setNotices] = useState<Notice[]>([]);
   const [form,setForm] = useState<Form | null>(null), [busy,setBusy] = useState(false), [error,setError] = useState(''), [success,setSuccess] = useState('');
   async function api(path: string, init?: RequestInit) {
-    const response = await fetch(path, { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
+    const response = await fetch(apiPath(path), { ...init, headers: { 'Content-Type': 'application/json', ...init?.headers } });
     const data = await response.json(); if (!response.ok) { if (response.status === 401) setAuth(false); throw new Error(data.error || '操作失败，请重试'); } return data;
   }
   async function refresh() { const data = await api('/api/admin/notices'); setNotices(data.notices); }
